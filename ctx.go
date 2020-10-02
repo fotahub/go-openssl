@@ -28,6 +28,7 @@ import (
 	"unsafe"
 
 	"github.com/spacemonkeygo/spacelog"
+
 )
 
 var (
@@ -53,10 +54,19 @@ func get_ssl_ctx_idx() C.int {
 	return ssl_ctx_idx
 }
 
-func newCtx(method *C.SSL_METHOD) (*Ctx, error) {
+type SSLVersion int
+
+const (
+	// Make sure to disable SSLv2 and SSLv3 if you use this. SSLv3 is vulnerable
+	// to the "POODLE" attack, and SSLv2 is what, just don't even.
+	AnyVersion SSLVersion = 0x06
+)
+
+// NewCtx creates a context that supports any TLS version 1.0 and newer.
+func NewCtx() (*Ctx, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	ctx := C.SSL_CTX_new(method)
+	ctx := C.SSL_CTX_new(C.X_SSLv23_method())
 	if ctx == nil {
 		return nil, errorFromErrorQueue()
 	}
@@ -65,51 +75,8 @@ func newCtx(method *C.SSL_METHOD) (*Ctx, error) {
 	runtime.SetFinalizer(c, func(c *Ctx) {
 		C.SSL_CTX_free(c.ctx)
 	})
+	c.SetOptions(NoSSLv2 | NoSSLv3)
 	return c, nil
-}
-
-type SSLVersion int
-
-const (
-	SSLv3   SSLVersion = 0x02 // Vulnerable to "POODLE" attack.
-	TLSv1   SSLVersion = 0x03
-	TLSv1_1 SSLVersion = 0x04
-	TLSv1_2 SSLVersion = 0x05
-
-	// Make sure to disable SSLv2 and SSLv3 if you use this. SSLv3 is vulnerable
-	// to the "POODLE" attack, and SSLv2 is what, just don't even.
-	AnyVersion SSLVersion = 0x06
-)
-
-// NewCtxWithVersion creates an SSL context that is specific to the provided
-// SSL version. See http://www.openssl.org/docs/ssl/SSL_CTX_new.html for more.
-func NewCtxWithVersion(version SSLVersion) (*Ctx, error) {
-	var method *C.SSL_METHOD
-	switch version {
-	case SSLv3:
-		method = C.X_SSLv3_method()
-	case TLSv1:
-		method = C.X_TLSv1_method()
-	case TLSv1_1:
-		method = C.X_TLSv1_1_method()
-	case TLSv1_2:
-		method = C.X_TLSv1_2_method()
-	case AnyVersion:
-		method = C.X_SSLv23_method()
-	}
-	if method == nil {
-		return nil, errors.New("unknown ssl/tls version")
-	}
-	return newCtx(method)
-}
-
-// NewCtx creates a context that supports any TLS version 1.0 and newer.
-func NewCtx() (*Ctx, error) {
-	c, err := NewCtxWithVersion(AnyVersion)
-	if err == nil {
-		c.SetOptions(NoSSLv2 | NoSSLv3)
-	}
-	return c, err
 }
 
 // NewCtxFromFiles calls NewCtx, loads the provided files, and configures the

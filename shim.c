@@ -375,8 +375,6 @@ int X_PEM_write_bio_PrivateKey_traditional(BIO *bio, EVP_PKEY *key, const EVP_CI
 int X_shim_init() {
 	int rc = 0;
 
-	OPENSSL_config(NULL);
-	ENGINE_load_builtin_engines();
 	SSL_load_error_strings();
 	SSL_library_init();
 	OpenSSL_add_all_algorithms();
@@ -441,34 +439,6 @@ int X_SSL_verify_cb(int ok, X509_STORE_CTX* store) {
 
 const SSL_METHOD *X_SSLv23_method() {
 	return SSLv23_method();
-}
-
-const SSL_METHOD *X_SSLv3_method() {
-#ifndef OPENSSL_NO_SSL3_METHOD
-	return SSLv3_method();
-#else
-	return NULL;
-#endif
-}
-
-const SSL_METHOD *X_TLSv1_method() {
-	return TLSv1_method();
-}
-
-const SSL_METHOD *X_TLSv1_1_method() {
-#if defined(TLS1_1_VERSION) && !defined(OPENSSL_SYSNAME_MACOSX)
-	return TLSv1_1_method();
-#else
-	return NULL;
-#endif
-}
-
-const SSL_METHOD *X_TLSv1_2_method() {
-#if defined(TLS1_2_VERSION) && !defined(OPENSSL_SYSNAME_MACOSX)
-	return TLSv1_2_method();
-#else
-	return NULL;
-#endif
 }
 
 int X_SSL_CTX_new_index() {

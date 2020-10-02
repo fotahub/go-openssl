@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"runtime"
 	"unsafe"
+
 )
 
 var ( // some (effectively) constants for tests to refer to
@@ -426,10 +427,21 @@ func GenerateRSAKey(bits int) (PrivateKey, error) {
 
 // GenerateRSAKeyWithExponent generates a new RSA private key.
 func GenerateRSAKeyWithExponent(bits int, exponent int) (PrivateKey, error) {
-	rsa := C.RSA_generate_key(C.int(bits), C.ulong(exponent), nil, nil)
+	rsa := C.RSA_new()
 	if rsa == nil {
+		return nil, errors.New("failed to allocate RSA")
+	}
+	e := C.BN_new();
+	if e == nil {
+		return nil, errors.New("failed to allocate BN")
+	}
+	C.BN_set_word(e, C.ulonglong(exponent))
+	if C.RSA_generate_key_ex(rsa, C.int(bits), e, nil) == 0 {
+		C.BN_free(e)
+		C.RSA_free(rsa)
 		return nil, errors.New("failed to generate RSA key")
 	}
+	C.BN_free(e)
 	key := C.X_EVP_PKEY_new()
 	if key == nil {
 		return nil, errors.New("failed to allocate EVP_PKEY")
