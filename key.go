@@ -435,7 +435,7 @@ func GenerateRSAKeyWithExponent(bits int, exponent int) (PrivateKey, error) {
 	if e == nil {
 		return nil, errors.New("failed to allocate BN")
 	}
-	C.BN_set_word(e, C.ulonglong(exponent))
+	C.X_BN_set_word(e, C.ulong(exponent))
 	if C.RSA_generate_key_ex(rsa, C.int(bits), e, nil) == 0 {
 		C.BN_free(e)
 		C.RSA_free(rsa)

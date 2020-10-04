@@ -176,3 +176,6 @@ extern int OBJ_create(const char *oid,const char *sn,const char *ln);
 /* Extension helper method */
 extern const unsigned char * get_extention(X509 *x, int NID, int *data_len);
 extern int add_custom_ext(X509 *cert, int nid, char *value, int len);
+
+/* BN methods */
+int X_BN_set_word(BIGNUM *a, unsigned long w);

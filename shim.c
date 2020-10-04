@@ -738,3 +738,7 @@ long X_X509_get_version(const X509 *x) {
 int X_X509_set_version(X509 *x, long version) {
 	return X509_set_version(x, version);
 }
+
+int X_BN_set_word(BIGNUM *a, unsigned long w) {
+	return BN_set_word(a, w);
+}
