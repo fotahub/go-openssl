@@ -23,6 +23,8 @@ import (
 	"reflect"
 	"sync"
 	"unsafe"
+	"net"
+
 )
 
 const (
@@ -49,6 +51,7 @@ type writeBio struct {
 	op_mtx          sync.Mutex
 	buf             []byte
 	release_buffers bool
+	conn            net.Conn
 }
 
 func loadWritePtr(b *C.BIO) *writeBio {
@@ -95,7 +98,9 @@ func go_write_bio_ctrl(b *C.BIO, cmd C.int, arg1 C.long, arg2 unsafe.Pointer) (
 	switch cmd {
 	case C.BIO_CTRL_WPENDING:
 		return writeBioPending(b)
-	case C.BIO_CTRL_DUP, C.BIO_CTRL_FLUSH:
+	case C.BIO_CTRL_FLUSH:
+		return writeBioFlush(b)
+	case C.BIO_CTRL_DUP:
 		return 1
 	default:
 		return 0
@@ -112,7 +117,19 @@ func writeBioPending(b *C.BIO) C.long {
 	return C.long(len(ptr.buf))
 }
 
-func (b *writeBio) WriteTo(w io.Writer) (rv int64, err error) {
+func writeBioFlush(b *C.BIO) C.long {
+	ptr := loadWritePtr(b)
+	if ptr == nil {
+		return 0
+	}
+	n, err := ptr.WriteToConn()
+	if err != nil {
+		return 0
+	}
+	return C.long(n)
+}
+
+func (b *writeBio) WriteToConn() (rv int64, err error) {
 	b.op_mtx.Lock()
 	defer b.op_mtx.Unlock()
 
@@ -124,7 +141,7 @@ func (b *writeBio) WriteTo(w io.Writer) (rv int64, err error) {
 	if len(data) == 0 {
 		return 0, nil
 	}
-	n, err := w.Write(data)
+	n, err := b.conn.Write(data)
 
 	// subtract however much data we wrote from the buffer
 	b.data_mtx.Lock()
@@ -159,6 +176,7 @@ type readBio struct {
 	buf             []byte
 	eof             bool
 	release_buffers bool
+	conn            net.Conn
 }
 
 func loadReadPtr(b *C.BIO) *readBio {
@@ -228,7 +246,7 @@ func readBioPending(b *C.BIO) C.long {
 	return C.long(len(ptr.buf))
 }
 
-func (b *readBio) ReadFromOnce(r io.Reader) (n int, err error) {
+func (b *readBio) ReadFromConnOnce() (n int, err error) {
 	b.op_mtx.Lock()
 	defer b.op_mtx.Unlock()
 
@@ -243,7 +261,7 @@ func (b *readBio) ReadFromOnce(r io.Reader) (n int, err error) {
 	dst_slice := b.buf
 	b.data_mtx.Unlock()
 
-	n, err = r.Read(dst)
+	n, err = b.conn.Read(dst)
 	b.data_mtx.Lock()
 	defer b.data_mtx.Unlock()
 	if n > 0 {

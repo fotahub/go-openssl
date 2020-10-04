@@ -115,8 +115,8 @@ func newConn(conn net.Conn, ctx *Ctx) (*Conn, error) {
 		return nil, err
 	}
 
-	into_ssl := &readBio{}
-	from_ssl := &writeBio{}
+	into_ssl := &readBio{conn: conn}
+	from_ssl := &writeBio{conn: conn}
 
 	if ctx.GetMode()&ReleaseBuffers > 0 {
 		into_ssl.release_buffers = true
@@ -200,7 +200,7 @@ func (c *Conn) CurrentCipher() (string, error) {
 
 func (c *Conn) fillInputBuffer() error {
 	for {
-		n, err := c.into_ssl.ReadFromOnce(c.conn)
+		n, err := c.into_ssl.ReadFromConnOnce()
 		if n == 0 && err == nil {
 			continue
 		}
@@ -213,7 +213,7 @@ func (c *Conn) fillInputBuffer() error {
 }
 
 func (c *Conn) flushOutputBuffer() error {
-	_, err := c.from_ssl.WriteTo(c.conn)
+	_, err := c.from_ssl.WriteToConn()
 	return err
 }
 
