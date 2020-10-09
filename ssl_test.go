@@ -17,15 +17,13 @@ package openssl
 import (
 	"bytes"
 	"crypto/rand"
-	"crypto/tls"
+	"crypto/tls"                                     
 	"io"
 	"io/ioutil"
 	"net"
 	"sync"
 	"testing"
 	"time"
-	"fmt"
-	"strings"
 
 	"github.com/fotahub/go-openssl/utils"
 )
@@ -669,87 +667,4 @@ func TestOpenSSLLotsOfConns(t *testing.T) {
 			}, func(c net.Conn) (net.Conn, error) {
 				return Client(c, ctx)
 			})
-		}
-		
-func TestOpenSSLClientServer(t *testing.T) {
-	msg := "test message\n"
-	ctrlChrReplacer := strings.NewReplacer("\r", "\\r", "\n", "\\n")
-			
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-
-		fmt.Println("    [Client] Connecting to server")
-		client_conn, err := Dial("tcp", "localhost:8080", nil, InsecureSkipHostVerification)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		fmt.Printf("    [Client] Sending message: %s\n", ctrlChrReplacer.Replace(msg))
-		_, err = io.Copy(client_conn, bytes.NewReader([]byte(msg)))
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		fmt.Println("    [Client] Disconnecting from server")
-		err = client_conn.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-	}()
-	go func() {
-		defer wg.Done()
-
-		ctx, err := NewCtx()
-		if err != nil {
-			t.Fatal(err)
-		}
-		key, err := LoadPrivateKeyFromPEM(keyBytes)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = ctx.UsePrivateKey(key)
-		if err != nil {
-			t.Fatal(err)
-		}
-		cert, err := LoadCertificateFromPEM(certBytes)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = ctx.UseCertificate(cert)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		fmt.Println("    [Server] Starting server")
-		l, err := Listen("tcp", "localhost:8080", ctx)
-		defer l.Close()
-		
-		server_conn, err := l.Accept()
-		if err != nil {
-			t.Fatal(err)
-		}
-	
-		buf := bytes.NewBuffer(make([]byte, 0, 100))
-		_, err = io.CopyN(buf, server_conn, int64(100))
-		if err != nil && err != io.EOF {
-			t.Fatal(err)
-		}
-		str, err := buf.ReadString('\n')
-		if err != nil && err != io.EOF {
-			t.Fatal(err)
-		}
-		fmt.Printf("    [Server] Received message: %s\n", ctrlChrReplacer.Replace(str))
-		if str != msg {
-			t.Fatal("mismatched message")
-		}
-	
-		fmt.Println("    [Server] Stopping server")
-		err = server_conn.Close()
-		if err != nil {
-			t.Fatal(err)
-		}	
-	}()
-	wg.Wait()
 }
