@@ -229,6 +229,9 @@ func NewCertificateStore() (*CertificateStore, error) {
 // Parse a chained PEM file, loading all certificates into the Store.
 func (s *CertificateStore) LoadCertificatesFromPEM(data []byte) error {
 	pems := SplitPEM(data)
+	if len(pems) == 0 {
+		return errors.New("No PEM certificate found")
+	}
 	for _, pem := range pems {
 		cert, err := LoadCertificateFromPEM(pem)
 		if err != nil {
