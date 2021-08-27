@@ -27,6 +27,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/mattn/go-pointer"
 	"github.com/spacemonkeygo/spacelog"
 
 )
@@ -71,7 +72,7 @@ func NewCtx() (*Ctx, error) {
 		return nil, errorFromErrorQueue()
 	}
 	c := &Ctx{ctx: ctx}
-	C.SSL_CTX_set_ex_data(ctx, get_ssl_ctx_idx(), unsafe.Pointer(c))
+	C.SSL_CTX_set_ex_data(ctx, get_ssl_ctx_idx(), pointer.Save(c))
 	runtime.SetFinalizer(c, func(c *Ctx) {
 		C.SSL_CTX_free(c.ctx)
 	})
@@ -400,7 +401,7 @@ func go_ssl_ctx_verify_cb_thunk(p unsafe.Pointer, ok C.int, ctx *C.X509_STORE_CT
 			os.Exit(1)
 		}
 	}()
-	verify_cb := (*Ctx)(p).verify_cb
+	verify_cb := pointer.Restore(p).(*Ctx).verify_cb
 	// set up defaults just in case verify_cb is nil
 	if verify_cb != nil {
 		store := &CertificateStoreCtx{ctx: ctx}
