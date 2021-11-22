@@ -1,0 +1,11 @@
+name: use-pkgconf
+description: Use pkgconf on windows
+
+runs:
+  using: "composite"
+  steps:
+    - name: Use pkgconf on windows
+      shell: bash
+      if: ${{ matrix.os == 'windows' }}
+      run: |
+        echo "PKG_CONFIG=C:/msys64/mingw64/bin/pkgconf" >> $GITHUB_ENV
