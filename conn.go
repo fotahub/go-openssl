@@ -27,7 +27,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/libp2p/go-openssl/utils"
+	"github.com/fotahub/go-openssl/utils"
 )
 
 var (
