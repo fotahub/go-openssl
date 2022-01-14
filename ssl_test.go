@@ -17,15 +17,17 @@ package openssl
 import (
 	"bytes"
 	"crypto/rand"
-	"crypto/tls"                                     
+	"crypto/tls"
 	"io"
 	"io/ioutil"
 	"net"
 	"sync"
 	"testing"
 	"time"
+	"bufio"
 
 	"github.com/fotahub/go-openssl/utils"
+
 )
 
 var (
@@ -163,6 +165,27 @@ func SimpleConnTest(t testing.TB, constructor func(
 	defer close_both(server, client)
 
 	var wg sync.WaitGroup
+
+	// Make sure we have completed the handshake on client and server side before going any further to save us from running into 
+	// "tread tcp 127.0.0.1:51081->127.0.0.1:51082: wsarecv: An established connection was aborted by the software in your host machine."
+	// kind of errors due to the client already closing the connection while the server is still busy with the handshake
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		err := client.Handshake()
+		if err != nil {
+			t.Error(err)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		err := server.Handshake()
+		if err != nil {
+			t.Error(err)
+		}
+	}()
+	wg.Wait()
+	
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
@@ -190,12 +213,13 @@ func SimpleConnTest(t testing.TB, constructor func(
 			t.Fatal(err)
 		}
 
-		buf := bytes.NewBuffer(make([]byte, 0, len(data)))
-		_, err = io.Copy(buf, server)
-		if err != nil {
+		// Use Reader instead of Copy to read until \n rather than EOF 
+		// and thereby avoid indefinite blocking reads when client is shut down apruptly 
+		msg, err := bufio.NewReader(server).ReadString('\n')
+		if err != nil && err != io.EOF {
 			t.Fatal(err)
 		}
-		if buf.String() != data {
+		if msg != data {
 			t.Fatal("mismatched data")
 		}
 
@@ -243,30 +267,30 @@ func ClosingTest(t *testing.T, constructor func(
 
 		var wg sync.WaitGroup
 
-		// If we're killing the TCP connection, make sure we handshake first
-		if close_tcp {
-			wg.Add(2)
-			go func() {
-				defer wg.Done()
-				err := sslconn1.Handshake()
-				if err != nil {
-					t.Error(err)
-				}
-			}()
-			go func() {
-				defer wg.Done()
-				err := sslconn2.Handshake()
-				if err != nil {
-					t.Error(err)
-				}
-			}()
-			wg.Wait()
-		}
+		// Make sure we have completed the handshake on client and server side before going any further to save us from running into 
+		// "tread tcp 127.0.0.1:51081->127.0.0.1:51082: wsarecv: An established connection was aborted by the software in your host machine."
+		// kind of errors due to the client already closing the connection while the server is still busy with the handshake
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			err := sslconn1.Handshake()
+			if err != nil {
+				t.Error(err)
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			err := sslconn2.Handshake()
+			if err != nil {
+				t.Error(err)
+			}
+		}()
+		wg.Wait()
 
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			_, err := sslconn1.Write([]byte("hello"))
+			_, err := sslconn1.Write([]byte("hello\n"))
 			if err != nil {
 				t.Error(err)
 				return
@@ -283,8 +307,10 @@ func ClosingTest(t *testing.T, constructor func(
 
 		go func() {
 			defer wg.Done()
-			data, err := ioutil.ReadAll(sslconn2)
-			if !bytes.Equal(data, []byte("hello")) {
+			// Use Reader instead of ReadAll to read until \n rather than EOF 
+			// and thereby avoid indefinite blocking reads when client is shut down apruptly 
+			msg, err := bufio.NewReader(sslconn2).ReadString('\n')
+			if msg != "hello\n" {
 				t.Error("bytes don't match")
 			}
 			if !close_tcp && err != nil {

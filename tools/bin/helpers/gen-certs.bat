@@ -13,8 +13,8 @@ set INTERMEDIATE_CA_COUNTRY=US
 set INTERMEDIATE_CA_CERT_BASE_NAME=%2
 
 set SERVER_NAME=%4
-set "SERVER_CA_ORGANIZATION=Fotahub, Inc."
-set SERVER_CA_COUNTRY=US
+set "SERVER_ORGANIZATION=Fotahub, Inc."
+set SERVER_COUNTRY=US
 set SERVER_CERT_BASE_NAME=%3
 
 set DESTDIR=%5
@@ -103,12 +103,12 @@ echo -------- Creating certificate signing request (CSR) for '%SERVER_NAME%' ---
 echo:
 
 openssl req -new -sha256 ^
-  -subj "/C=%SERVER_CA_COUNTRY%/O=%SERVER_CA_ORGANIZATION%/CN=%SERVER_NAME%" ^
+  -subj "/C=%SERVER_COUNTRY%/O=%SERVER_ORGANIZATION%/CN=%SERVER_NAME%" ^
   -key %SERVER_CERT_BASE_PATH%.key  ^
   -out %SERVER_CERT_BASE_PATH%.csr
 
 echo:
-echo -------- Generating and signing server certificate using '%SERVER_NAME%' CSR along with the intermediate CA key --------
+echo -------- Generating and signing server certificate using '%SERVER_NAME%' CSR and key along with the intermediate CA key --------
 echo:
 
 openssl x509 -req -sha256 -days 365 ^
